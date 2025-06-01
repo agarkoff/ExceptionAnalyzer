@@ -89,6 +89,9 @@ public class ExceptionAnalyzer {
             // Генерируем HTML отчет
             generateHtmlReport(exceptions, projectSummaries, projectTotals);
 
+            // Генерируем txt файл с уникальными Exception Text
+            generateUniqueExceptionTextFile(exceptions);
+
         } catch (IOException e) {
             System.err.println("Error analyzing projects: " + e.getMessage());
             e.printStackTrace();
@@ -137,6 +140,42 @@ public class ExceptionAnalyzer {
 
         } catch (IOException e) {
             System.err.println("Error reading file " + javaFile + ": " + e.getMessage());
+        }
+    }
+
+    private void generateUniqueExceptionTextFile(List<ExceptionRecord> exceptions) {
+        try {
+            // Собираем уникальные значения Exception Text
+            Set<String> uniqueExceptionTexts = exceptions.stream()
+                    .map(ExceptionRecord::getExceptionText)
+                    .filter(text -> text != null && !text.trim().isEmpty())
+                    .collect(Collectors.toCollection(LinkedHashSet::new)); // LinkedHashSet сохраняет порядок
+
+            // Сортируем для удобства чтения
+            List<String> sortedUniqueTexts = uniqueExceptionTexts.stream()
+                    .sorted()
+                    .collect(Collectors.toList());
+
+            // Записываем в файл
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter("unique_exception_texts.txt"))) {
+                writer.write("Unique Exception Texts\n");
+                writer.write("=====================\n");
+                writer.write("Generated on: " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + "\n");
+                writer.write("Total unique exception texts found: " + sortedUniqueTexts.size() + "\n");
+                writer.write("\n");
+
+                for (String exceptionText : sortedUniqueTexts) {
+                    writer.write(exceptionText);
+                    writer.newLine();
+                }
+            }
+
+            System.out.println("Unique exception texts file generated: unique_exception_texts.txt");
+            System.out.println("Total unique exception texts: " + sortedUniqueTexts.size());
+
+        } catch (IOException e) {
+            System.err.println("Error generating unique exception texts file: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
