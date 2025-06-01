@@ -6,9 +6,13 @@ import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.ast.stmt.ThrowStmt;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import com.github.javaparser.utils.SourceRoot;
+import com.github.mustachejava.DefaultMustacheFactory;
+import com.github.mustachejava.Mustache;
+import com.github.mustachejava.MustacheFactory;
 
 import java.io.*;
 import java.nio.file.*;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -137,80 +141,112 @@ public class ExceptionAnalyzer {
     }
 
     private void generateHtmlReport(List<ExceptionRecord> exceptions, List<ProjectSummary> summaries, List<ProjectTotal> projectTotals) {
-        try (PrintWriter writer = new PrintWriter(new FileWriter("exception_analysis_report.html"))) {
-            writer.println("<!DOCTYPE html>");
-            writer.println("<html>");
-            writer.println("<head>");
-            writer.println("    <meta charset='UTF-8'>");
-            writer.println("    <title>Exception Analysis Report</title>");
-            writer.println("    <style>");
-            writer.println("        body { font-family: Arial, sans-serif; margin: 20px; }");
-            writer.println("        table { border-collapse: collapse; width: 100%; margin: 20px 0; }");
-            writer.println("        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }");
-            writer.println("        th { background-color: #f2f2f2; font-weight: bold; }");
-            writer.println("        tr:nth-child(even) { background-color: #f9f9f9; }");
-            writer.println("        .summary { margin-bottom: 40px; }");
-            writer.println("        .project-totals { margin-bottom: 40px; }");
-            writer.println("        h1, h2 { color: #333; }");
-            writer.println("        .totals-table { max-width: 600px; }");
-            writer.println("    </style>");
-            writer.println("</head>");
-            writer.println("<body>");
+        try {
+            // Создаем объект для передачи данных в шаблон
+            Map<String, Object> templateData = new HashMap<>();
 
-            writer.println("<h1>Exception Analysis Report</h1>");
-            writer.println("<p>Generated on: " + new Date() + "</p>");
+            // Базовая информация
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            templateData.put("generatedDate", dateFormat.format(new Date()));
 
-            // Таблица общих итогов по проектам
-            writer.println("<div class='project-totals'>");
-            writer.println("<h2>Total Exceptions by Project</h2>");
-            writer.println("<table class='totals-table'>");
-            writer.println("<tr><th>Project Name</th><th>Total Exceptions</th></tr>");
+            // Статистика
+            templateData.put("totalProjects", projectTotals.size());
+            templateData.put("totalFiles", summaries.size());
+            templateData.put("totalExceptions", exceptions.size());
 
-            for (ProjectTotal total : projectTotals) {
-                writer.printf("<tr><td>%s</td><td>%d</td></tr>%n",
-                        escapeHtml(total.getProjectName()),
-                        total.getTotalExceptions());
-            }
-            writer.println("</table>");
-            writer.println("</div>");
+            // Данные таблиц
+            templateData.put("projectTotals", projectTotals);
+            templateData.put("projectSummaries", summaries);
+            templateData.put("exceptions", exceptions);
 
-            // Таблица сводки по файлам
-            writer.println("<div class='summary'>");
-            writer.println("<h2>Summary by Project and File</h2>");
-            writer.println("<table>");
-            writer.println("<tr><th>Project Name</th><th>File Name</th><th>Exception Count</th></tr>");
+            // Загружаем и обрабатываем шаблон
+            MustacheFactory mf = new DefaultMustacheFactory();
 
-            for (ProjectSummary summary : summaries) {
-                writer.printf("<tr><td>%s</td><td>%s</td><td>%d</td></tr>%n",
-                        escapeHtml(summary.getProjectName()),
-                        escapeHtml(summary.getFileName()),
-                        summary.getExceptionCount());
-            }
-            writer.println("</table>");
-            writer.println("</div>");
-
-            // Детальная таблица исключений
-            writer.println("<h2>Detailed Exception Analysis</h2>");
-            writer.println("<table>");
-            writer.println("<tr><th>Project Name</th><th>File Name</th><th>Exception Type</th><th>Exception Text</th></tr>");
-
-            for (ExceptionRecord exception : exceptions) {
-                writer.printf("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>%n",
-                        escapeHtml(exception.getProjectName()),
-                        escapeHtml(exception.getFileName()),
-                        escapeHtml(exception.getExceptionType()),
-                        escapeHtml(exception.getExceptionText()));
+            // Пытаемся загрузить шаблон из classpath
+            Mustache mustache;
+            try (InputStream templateStream = getClass().getClassLoader().getResourceAsStream("report-template.mustache")) {
+                if (templateStream != null) {
+                    mustache = mf.compile(new InputStreamReader(templateStream), "report-template");
+                } else {
+                    // Если шаблон не найден в classpath, пытаемся загрузить из файла
+                    File templateFile = new File("report-template.mustache");
+                    if (templateFile.exists()) {
+                        mustache = mf.compile("report-template.mustache");
+                    } else {
+                        System.err.println("Template file not found. Creating default template...");
+                        createDefaultTemplate();
+                        mustache = mf.compile("report-template.mustache");
+                    }
+                }
             }
 
-            writer.println("</table>");
-            writer.println("</body>");
-            writer.println("</html>");
+            // Генерируем HTML
+            try (FileWriter writer = new FileWriter("exception_analysis_report.html")) {
+                mustache.execute(writer, templateData);
+                writer.flush();
+            }
 
             System.out.println("HTML report generated: exception_analysis_report.html");
 
         } catch (IOException e) {
             System.err.println("Error generating HTML report: " + e.getMessage());
+            e.printStackTrace();
         }
+    }
+
+    private void createDefaultTemplate() throws IOException {
+        // Создаем базовый шаблон, если файл не найден
+        String defaultTemplate = getDefaultTemplate();
+        try (FileWriter writer = new FileWriter("report-template.mustache")) {
+            writer.write(defaultTemplate);
+        }
+        System.out.println("Created default template: report-template.mustache");
+    }
+
+    private String getDefaultTemplate() {
+        return "<!DOCTYPE html>\n" +
+                "<html>\n" +
+                "<head>\n" +
+                "    <title>Exception Analysis Report</title>\n" +
+                "    <style>\n" +
+                "        body { font-family: Arial, sans-serif; margin: 20px; }\n" +
+                "        table { border-collapse: collapse; width: 100%; margin: 20px 0; }\n" +
+                "        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }\n" +
+                "        th { background-color: #f2f2f2; }\n" +
+                "    </style>\n" +
+                "</head>\n" +
+                "<body>\n" +
+                "    <h1>Exception Analysis Report</h1>\n" +
+                "    <p>Generated on: {{generatedDate}}</p>\n" +
+                "    \n" +
+                "    <h2>Statistics</h2>\n" +
+                "    <p>Projects: {{totalProjects}}, Files: {{totalFiles}}, Exceptions: {{totalExceptions}}</p>\n" +
+                "    \n" +
+                "    <h2>Project Totals</h2>\n" +
+                "    <table>\n" +
+                "        <tr><th>Project</th><th>Total</th></tr>\n" +
+                "        {{#projectTotals}}\n" +
+                "        <tr><td>{{projectName}}</td><td>{{totalExceptions}}</td></tr>\n" +
+                "        {{/projectTotals}}\n" +
+                "    </table>\n" +
+                "    \n" +
+                "    <h2>File Summary</h2>\n" +
+                "    <table>\n" +
+                "        <tr><th>Project</th><th>File</th><th>Count</th></tr>\n" +
+                "        {{#projectSummaries}}\n" +
+                "        <tr><td>{{projectName}}</td><td>{{fileName}}</td><td>{{exceptionCount}}</td></tr>\n" +
+                "        {{/projectSummaries}}\n" +
+                "    </table>\n" +
+                "    \n" +
+                "    <h2>Detailed Analysis</h2>\n" +
+                "    <table>\n" +
+                "        <tr><th>Project</th><th>File</th><th>Type</th><th>Text</th></tr>\n" +
+                "        {{#exceptions}}\n" +
+                "        <tr><td>{{projectName}}</td><td>{{fileName}}</td><td>{{exceptionType}}</td><td>{{exceptionText}}</td></tr>\n" +
+                "        {{/exceptions}}\n" +
+                "    </table>\n" +
+                "</body>\n" +
+                "</html>";
     }
 
     private String escapeHtml(String text) {

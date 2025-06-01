@@ -34,6 +34,13 @@
             <artifactId>javaparser-symbol-solver-core</artifactId>
             <version>${javaparser.version}</version>
         </dependency>
+
+        <!-- Mustache шаблонизатор -->
+        <dependency>
+            <groupId>com.github.spullara.mustache.java</groupId>
+            <artifactId>compiler</artifactId>
+            <version>0.9.11</version>
+        </dependency>
     </dependencies>
 
     <build>
