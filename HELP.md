@@ -67,7 +67,8 @@ exception-analyzer/
 
 После выполнения скрипта будет создан файл `exception_analysis_report.html` в текущей директории.
 
-Файл содержит:
+Файл содержит три таблицы:
+- **Общие итоги по проектам** с колонками: Имя проекта, Общее количество исключений
 - **Сводную таблицу** с колонками: Имя проекта, Имя файла, Количество исключений
 - **Детальную таблицу** с колонками: Имя проекта, Имя файла, Тип исключения, Текст исключения
 
@@ -80,19 +81,19 @@ exception-analyzer/
 throw new RuntimeException();
 
 // Исключение с строковым сообщением
-throw new IllegalArgumentException("Invalid parameter");
+        throw new IllegalArgumentException("Invalid parameter");
 
 // Исключение с переменной
-throw new CustomException(errorMessage);
+        throw new CustomException(errorMessage);
 
 // Исключение с несколькими параметрами
-throw new ValidationException(field, value, "must not be null");
+        throw new ValidationException(field, value, "must not be null");
 
 // Исключение с константой
-throw new ServiceException(ERROR_CODE_INVALID_INPUT);
+        throw new ServiceException(ERROR_CODE_INVALID_INPUT);
 
 // Переброс существующего исключения
-throw existingException;
+        throw existingException;
 ```
 
 ## Технические детали

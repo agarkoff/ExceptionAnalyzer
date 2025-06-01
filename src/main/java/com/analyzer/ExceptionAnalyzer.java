@@ -1,4 +1,4 @@
-package com.analyzer.exceptionanalyzer;
+package com.analyzer;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ast.CompilationUnit;
@@ -35,6 +35,7 @@ public class ExceptionAnalyzer {
     private void analyzeProjects(Path rootPath) {
         List<ExceptionRecord> exceptions = new ArrayList<>();
         List<ProjectSummary> projectSummaries = new ArrayList<>();
+        List<ProjectTotal> projectTotals = new ArrayList<>();
 
         try {
             // Находим все подкаталоги (Spring Boot проекты)
@@ -48,6 +49,9 @@ public class ExceptionAnalyzer {
 
                 List<ExceptionRecord> projectExceptions = analyzeProject(projectDir, projectName);
                 exceptions.addAll(projectExceptions);
+
+                // Добавляем общее количество исключений по проекту
+                projectTotals.add(new ProjectTotal(projectName, projectExceptions.size()));
 
                 // Группируем по файлам для сводки
                 Map<String, Long> fileCounts = projectExceptions.stream()
@@ -75,8 +79,11 @@ public class ExceptionAnalyzer {
                     .comparing(ProjectSummary::getProjectName)
                     .thenComparing(ProjectSummary::getFileName));
 
+            projectTotals.sort(Comparator
+                    .comparing(ProjectTotal::getProjectName));
+
             // Генерируем HTML отчет
-            generateHtmlReport(exceptions, projectSummaries);
+            generateHtmlReport(exceptions, projectSummaries, projectTotals);
 
         } catch (IOException e) {
             System.err.println("Error analyzing projects: " + e.getMessage());
@@ -129,7 +136,7 @@ public class ExceptionAnalyzer {
         }
     }
 
-    private void generateHtmlReport(List<ExceptionRecord> exceptions, List<ProjectSummary> summaries) {
+    private void generateHtmlReport(List<ExceptionRecord> exceptions, List<ProjectSummary> summaries, List<ProjectTotal> projectTotals) {
         try (PrintWriter writer = new PrintWriter(new FileWriter("exception_analysis_report.html"))) {
             writer.println("<!DOCTYPE html>");
             writer.println("<html>");
@@ -143,7 +150,9 @@ public class ExceptionAnalyzer {
             writer.println("        th { background-color: #f2f2f2; font-weight: bold; }");
             writer.println("        tr:nth-child(even) { background-color: #f9f9f9; }");
             writer.println("        .summary { margin-bottom: 40px; }");
+            writer.println("        .project-totals { margin-bottom: 40px; }");
             writer.println("        h1, h2 { color: #333; }");
+            writer.println("        .totals-table { max-width: 600px; }");
             writer.println("    </style>");
             writer.println("</head>");
             writer.println("<body>");
@@ -151,7 +160,21 @@ public class ExceptionAnalyzer {
             writer.println("<h1>Exception Analysis Report</h1>");
             writer.println("<p>Generated on: " + new Date() + "</p>");
 
-            // Таблица сводки
+            // Таблица общих итогов по проектам
+            writer.println("<div class='project-totals'>");
+            writer.println("<h2>Total Exceptions by Project</h2>");
+            writer.println("<table class='totals-table'>");
+            writer.println("<tr><th>Project Name</th><th>Total Exceptions</th></tr>");
+
+            for (ProjectTotal total : projectTotals) {
+                writer.printf("<tr><td>%s</td><td>%d</td></tr>%n",
+                        escapeHtml(total.getProjectName()),
+                        total.getTotalExceptions());
+            }
+            writer.println("</table>");
+            writer.println("</div>");
+
+            // Таблица сводки по файлам
             writer.println("<div class='summary'>");
             writer.println("<h2>Summary by Project and File</h2>");
             writer.println("<table>");
@@ -222,6 +245,21 @@ public class ExceptionAnalyzer {
         public String getExceptionType() { return exceptionType; }
         public String getExceptionText() { return exceptionText; }
         public int getLineNumber() { return lineNumber; }
+    }
+
+    // Класс для общих итогов по проекту
+    public static class ProjectTotal {
+        private final String projectName;
+        private final int totalExceptions;
+
+        public ProjectTotal(String projectName, int totalExceptions) {
+            this.projectName = projectName;
+            this.totalExceptions = totalExceptions;
+        }
+
+        // Геттеры
+        public String getProjectName() { return projectName; }
+        public int getTotalExceptions() { return totalExceptions; }
     }
 
     // Класс для сводки по проекту
