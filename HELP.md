@@ -74,27 +74,37 @@ exception-analyzer/
 
 ## Примеры обрабатываемых исключений
 
-Скрипт корректно обрабатывает различные формы исключений:
+Скрипт корректно обрабатывает различные формы создания новых исключений:
 
 ```java
 // Простое исключение без параметров
 throw new RuntimeException();
 
 // Исключение с строковым сообщением
-        throw new IllegalArgumentException("Invalid parameter");
+throw new IllegalArgumentException("Invalid parameter");
 
 // Исключение с переменной
-        throw new CustomException(errorMessage);
+throw new CustomException(errorMessage);
 
 // Исключение с несколькими параметрами
-        throw new ValidationException(field, value, "must not be null");
+throw new ValidationException(field, value, "must not be null");
 
 // Исключение с константой
-        throw new ServiceException(ERROR_CODE_INVALID_INPUT);
-
-// Переброс существующего исключения
-        throw existingException;
+throw new ServiceException(ERROR_CODE_INVALID_INPUT);
 ```
+
+## Исключаемые случаи
+
+Скрипт **НЕ** обрабатывает пробрасывание существующих исключений:
+
+```java
+// Эти случаи игнорируются:
+throw e;
+throw existingException;
+throw caughtException;
+```
+
+Это сделано для того, чтобы сосредоточиться на местах создания новых исключений, а не на их пробрасывании.
 
 ## Технические детали
 

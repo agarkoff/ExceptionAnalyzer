@@ -296,6 +296,8 @@ public class ExceptionAnalyzer {
         public void visit(ThrowStmt n, Void arg) {
             super.visit(n, arg);
 
+            // Обрабатываем только создание новых исключений (ObjectCreationExpr)
+            // Исключаем пробрасывание существующих исключений (переменных)
             if (n.getExpression() instanceof ObjectCreationExpr) {
                 ObjectCreationExpr expr = (ObjectCreationExpr) n.getExpression();
                 String exceptionType = expr.getType().getNameAsString();
@@ -305,16 +307,8 @@ public class ExceptionAnalyzer {
                 exceptions.add(new ExceptionRecord(
                         projectName, fileName, exceptionType, exceptionText, lineNumber
                 ));
-            } else {
-                // Обработка случаев, когда бросается переменная исключения
-                String exceptionText = n.getExpression().toString();
-                String exceptionType = "Unknown"; // Тип неизвестен для переменных
-                int lineNumber = n.getBegin().map(pos -> pos.line).orElse(0);
-
-                exceptions.add(new ExceptionRecord(
-                        projectName, fileName, exceptionType, exceptionText, lineNumber
-                ));
             }
+            // Игнорируем случаи типа "throw e", "throw existingException" и т.д.
         }
 
         private String buildExceptionText(ObjectCreationExpr expr) {
